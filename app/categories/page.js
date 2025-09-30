@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Pencil, Trash2, Plus } from "lucide-react";
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState([]);
@@ -29,27 +33,23 @@ export default function CategoriesPage() {
   }, []);
 
   // Add category
-const addCategory = async () => {
-  if (!newCategory.trim()) return;
+  const addCategory = async () => {
+    if (!newCategory.trim()) return;
 
-  const user = supabase.auth.getUser(); // Get current logged-in user
+    const user = supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from("categories")
+      .insert({
+        name: newCategory,
+        user_id: (await user).data.user.id
+      });
 
-  // Insert with user_id matching the authenticated user
-  const { data, error } = await supabase
-    .from("categories")
-    .insert({
-      name: newCategory,
-      user_id: (await user).data.user.id  // <-- set user_id
-    });
-
-  if (error) {
-    console.error("Error adding category:", error);
-  } else {
-    setNewCategory("");
-    fetchCategories();
-  }
-};
-
+    if (error) console.error("Error adding category:", error);
+    else {
+      setNewCategory("");
+      fetchCategories();
+    }
+  };
 
   // Update category
   const updateCategory = async (id, name) => {
@@ -68,104 +68,97 @@ const addCategory = async () => {
 
   // Update revision plan
   const updateRevisionPlan = async () => {
-    await supabase
-      .from("settings")
-      .upsert({ revision_plan })
-      .eq("id", 1); // Assuming single settings row
+    await supabase.from("settings").upsert({ revision_plan }).eq("id", 1);
     setMessage("Revision plan updated!");
     setTimeout(() => setMessage(""), 3000);
   };
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4">Categories</h1>
+    <div className="p-8 bg-neutral-100 min-h-screen">
+      <h1 className="text-3xl font-bold mb-6 text-neutral-900">
+        Manage <span className="text-orange-500">Categories</span>
+      </h1>
 
       {/* Add Category */}
-      <div className="flex gap-2 mb-4">
-        <input
+      <div className="bg-white rounded-3xl p-6 shadow mb-6 flex gap-3 items-center">
+        <Input
           type="text"
-          placeholder="New Category"
-          className="border p-2 rounded flex-1"
+          placeholder="Enter category name"
+          className="flex-1 rounded-full border-neutral-300"
           value={newCategory}
           onChange={(e) => setNewCategory(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && addCategory()}
         />
-        <button
-          onClick={addCategory}
-          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-        >
+        <Button onClick={addCategory} className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-6 flex items-center gap-2">
+          <Plus className="w-4 h-4" />
           Add
-        </button>
+        </Button>
       </div>
 
-      {/* Categories Table */}
-      <table className="min-w-full divide-y divide-gray-200 mb-6">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-4 py-2 text-left">Category</th>
-            <th className="px-4 py-2 text-left">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {categories.map((cat) => (
-            <tr key={cat.id} className="hover:bg-gray-50">
-              <td className="px-4 py-2">
-                {editingCategory === cat.id ? (
-                  <input
-                    type="text"
-                    className="border p-1 rounded w-full"
-                    defaultValue={cat.name}
-                    onBlur={(e) => updateCategory(cat.id, e.target.value)}
-                    autoFocus
-                  />
-                ) : (
-                  cat.name
-                )}
-              </td>
-              <td className="px-4 py-2 flex gap-2">
-                <button
-                  onClick={() => setEditingCategory(cat.id)}
-                  className="px-2 py-1 bg-yellow-400 rounded hover:bg-yellow-500"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => deleteCategory(cat.id)}
-                  className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-                >
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* Categories List */}
+      <div className="bg-white rounded-3xl p-6 shadow mb-6">
+        <h2 className="text-xl font-bold mb-4">Your Categories</h2>
+        <div className="space-y-3">
+          {categories.length === 0 ? (
+            <p className="text-neutral-500 text-center py-8">No categories yet. Add your first category above!</p>
+          ) : (
+            categories.map((cat) => (
+              <div key={cat.id} className="flex items-center justify-between p-4 rounded-2xl border border-neutral-200 hover:border-orange-300 transition">
+                <div className="flex-1">
+                  {editingCategory === cat.id ? (
+                    <Input
+                      type="text"
+                      className="rounded-full border-neutral-300"
+                      defaultValue={cat.name}
+                      onBlur={(e) => updateCategory(cat.id, e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && updateCategory(cat.id, e.currentTarget.value)}
+                      autoFocus
+                    />
+                  ) : (
+                    <Badge className="bg-neutral-900 text-white rounded-full px-4 py-1 hover:bg-neutral-800 cursor-pointer" onClick={() => setEditingCategory(cat.id)}>
+                      {cat.name}
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={() => setEditingCategory(cat.id)} variant="outline" size="sm" className="rounded-full border-neutral-300">
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button onClick={() => deleteCategory(cat.id)} variant="outline" size="sm" className="rounded-full border-red-300 text-red-500 hover:bg-red-50">
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
 
       {/* Revision Plan */}
-      <div className="mb-4">
-        <h2 className="text-xl font-bold mb-2">Revision Plan (Days per Level)</h2>
-        <div className="flex gap-2">
+      <div className="bg-white rounded-3xl p-6 shadow">
+        <h2 className="text-xl font-bold mb-4">Revision Plan Settings</h2>
+        <p className="text-neutral-600 mb-6 text-sm">
+          Configure how many days to wait before reviewing questions at each confidence level.
+        </p>
+        <div className="grid grid-cols-5 gap-4 mb-6">
           {Object.keys(revisionPlan).map((level) => (
             <div key={level} className="flex flex-col items-center">
-              <label className="font-semibold">{level.toUpperCase()}</label>
-              <input
+              <label className="font-semibold text-sm mb-2 text-neutral-700">{level.replace("level", "Level ")}</label>
+              <Input
                 type="number"
                 min={1}
-                className="border p-1 w-16 rounded text-center"
+                className="w-full text-center rounded-full border-neutral-300"
                 value={revisionPlan[level]}
-                onChange={(e) =>
-                  setRevisionPlan({ ...revisionPlan, [level]: Number(e.target.value) })
-                }
+                onChange={(e) => setRevisionPlan({ ...revisionPlan, [level]: Number(e.target.value) })}
               />
+              <span className="text-xs text-neutral-500 mt-1">days</span>
             </div>
           ))}
         </div>
-        <button
-          onClick={updateRevisionPlan}
-          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-        >
+        <Button onClick={updateRevisionPlan} className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-6">
           Update Revision Plan
-        </button>
-        {message && <p className="text-green-500 mt-2">{message}</p>}
+        </Button>
+        {message && <p className="text-green-600 mt-4 font-medium">{message}</p>}
       </div>
     </div>
   );
